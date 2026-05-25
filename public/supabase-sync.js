@@ -150,7 +150,11 @@
   (async function init() {
     try {
       const [cfg, lib] = await Promise.all([fetchConfig(), loadSupabaseLib()]);
-      supabaseClient = lib.createClient(cfg.url, cfg.anonKey, {
+      // Defensive trim — env vars en Vercel a veces vienen con whitespace
+      // que rompe los fetch del SDK ("TypeError: Failed to fetch")
+      const cleanUrl = (cfg.url || '').trim();
+      const cleanKey = (cfg.anonKey || '').trim();
+      supabaseClient = lib.createClient(cleanUrl, cleanKey, {
         auth: { persistSession: false, autoRefreshToken: false }
       });
       await hydrate();
