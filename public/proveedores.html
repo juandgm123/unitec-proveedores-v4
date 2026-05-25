@@ -873,12 +873,47 @@ let currentModalProduct = null;
 let currentOrder = null;
 
 // === INIT ===
-document.addEventListener('DOMContentLoaded', () => {
+function reloadOrdersFromStorage() {
+  orders = JSON.parse(localStorage.getItem('unitec_v4_orders') || '[]');
+  orders.forEach(o => { if (!o.createdAt) { const d = new Date(o.date); o.createdAt = isNaN(d) ? Date.now() - 86400000 * 5 : d.getTime(); } });
+}
+
+function initApp() {
   console.log('UNITEC Portal cargado. v7c');
+  reloadOrdersFromStorage();
   const saved = localStorage.getItem('unitec_v4_user');
   if (saved) { currentUser = JSON.parse(saved); showApp(); }
   populateCategories();
   updateStats();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Esperar al shim Supabase antes de pintar (failsafe 3s si Supabase está caído)
+  let booted = false;
+  const boot = () => {
+    if (booted) return;
+    booted = true;
+    initApp();
+  };
+  if (window.__supabaseSync && window.__supabaseSync.status && window.__supabaseSync.status()) {
+    boot();
+  } else {
+    window.addEventListener('supabaseSyncReady', boot, { once: true });
+    setTimeout(boot, 3000);
+  }
+});
+
+// Re-renderizar cuando lleguen cambios remotos (auto-resync 60s u otros dispositivos)
+window.addEventListener('supabaseRemoteChange', (e) => {
+  if (!e.detail || !e.detail.keys) return;
+  if (e.detail.keys.indexOf('unitec_v4_orders') !== -1 || e.detail.keys.indexOf('oc_orders') !== -1) {
+    reloadOrdersFromStorage();
+    if (currentUser) {
+      renderCatalogo();
+      renderHistorial();
+      updateStats();
+    }
+  }
 });
 
 // === LOGIN ===

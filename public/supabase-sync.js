@@ -83,6 +83,7 @@
       return;
     }
     let restored = 0;
+    const changedKeys = [];
     for (const row of data || []) {
       // Solo restauramos si Supabase tiene algo más nuevo / si local está vacío
       const localRaw = originalGetItem.call(localStorage, row.key);
@@ -90,7 +91,11 @@
       if (localRaw !== remoteRaw) {
         originalSetItem.call(localStorage, row.key, remoteRaw);
         restored++;
+        changedKeys.push(row.key);
       }
+    }
+    if (changedKeys.length > 0) {
+      window.dispatchEvent(new CustomEvent('supabaseRemoteChange', { detail: { keys: changedKeys } }));
     }
     showStatus(restored > 0 ? `✅ ${restored} datasets restaurados` : '✅ Datos sincronizados');
   }
@@ -161,9 +166,11 @@
       ready = true;
       window.__supabaseSync = { client: supabaseClient, hydrate, doPush, status: () => ready };
       console.log('[SupabaseSync] activo — workspace:', WORKSPACE);
+      window.dispatchEvent(new CustomEvent('supabaseSyncReady'));
     } catch (e) {
       console.error('[SupabaseSync] init falló:', e);
       showStatus('⚠️ Sin sync — datos solo locales', true);
+      window.dispatchEvent(new CustomEvent('supabaseSyncReady', { detail: { failed: true } }));
     }
   })();
 
